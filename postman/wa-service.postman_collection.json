@@ -1,0 +1,310 @@
+{
+  "info": {
+    "_postman_id": "5c8c94ac-6d75-4ceb-98a0-fc620f5e5d9f",
+    "name": "WA Queue Service",
+    "description": "Postman collection for the WA Queue Service API. The collection automatically generates HMAC headers when the `hmacSecret` variable is set.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "value",
+        "value": "{{apiKey}}",
+        "type": "string"
+      },
+      {
+        "key": "key",
+        "value": "X-API-Key",
+        "type": "string"
+      },
+      {
+        "key": "in",
+        "value": "header",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.request.url.toString().includes('/v1/')) {",
+          "    const secret = pm.variables.get('hmacSecret');",
+          "",
+          "    if (secret) {",
+          "        const CryptoJS = require('crypto-js');",
+          "        const timestamp = Date.now().toString();",
+          "        const rawBody = pm.request.body && pm.request.body.mode === 'raw'",
+          "            ? pm.variables.replaceIn(pm.request.body.raw || '')",
+          "            : '';",
+          "        const signature = CryptoJS.HmacSHA256(timestamp + '\\n' + rawBody, secret)",
+          "            .toString(CryptoJS.enc.Hex);",
+          "",
+          "        pm.request.headers.upsert({ key: 'X-Timestamp', value: timestamp });",
+          "        pm.request.headers.upsert({ key: 'X-Signature', value: signature });",
+          "    } else {",
+          "        pm.request.headers.remove('X-Timestamp');",
+          "        pm.request.headers.remove('X-Signature');",
+          "    }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Service",
+      "auth": {
+        "type": "noauth"
+      },
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/healthz",
+            "description": "Liveness check. Does not require authentication."
+          }
+        },
+        {
+          "name": "Readiness Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/readyz",
+            "description": "Checks whether Redis is available. Does not require authentication."
+          }
+        },
+        {
+          "name": "Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/metrics",
+            "description": "Prometheus-compatible queue metrics. Does not require authentication."
+          }
+        },
+        {
+          "name": "OpenAPI Specification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/openapi.yaml"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "Send Message",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.jobId) pm.collectionVariables.set('jobId', response.jobId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "description": "Optional key to prevent duplicate jobs. Change it before sending a logically new request."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiver\": \"{{receiver}}\",\n  \"message\": \"Hello from Postman\",\n  \"enableTypingEffect\": false,\n  \"typingSpeedMs\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/messages",
+            "description": "Queues one WhatsApp message. A successful response stores the returned job ID in the `jobId` collection variable."
+          }
+        },
+        {
+          "name": "Send Bulk Messages",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receivers\": [\n    \"{{receiver}}\",\n    \"6281234567891\"\n  ],\n  \"message\": \"Hello from Postman bulk request\",\n  \"enableTypingEffect\": false,\n  \"typingSpeedMs\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/v1/messages/bulk",
+            "description": "Queues the same message for multiple receivers."
+          }
+        },
+        {
+          "name": "Get Job",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/jobs/{{jobId}}",
+            "description": "Returns the status of the job stored in the `jobId` collection variable."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Queue",
+      "item": [
+        {
+          "name": "Queue Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/queue/stats"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Administration",
+      "auth": {
+        "type": "apikey",
+        "apikey": [
+          {
+            "key": "value",
+            "value": "{{adminApiKey}}",
+            "type": "string"
+          },
+          {
+            "key": "key",
+            "value": "X-API-Key",
+            "type": "string"
+          },
+          {
+            "key": "in",
+            "value": "header",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Drain Queue",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/v1/queue/drain",
+            "description": "Deletes waiting jobs. Requires the admin API key."
+          }
+        },
+        {
+          "name": "WhatsApp Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/wa/status",
+            "description": "Returns the WhatsApp connection status. Requires the admin API key."
+          }
+        },
+        {
+          "name": "Connect WhatsApp",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/v1/wa/connect",
+            "description": "Connects an existing session or starts QR pairing. Requires the admin API key."
+          }
+        },
+        {
+          "name": "Get WhatsApp QR",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/wa/qr",
+            "description": "Returns the current raw QR payload. Requires the admin API key."
+          }
+        },
+        {
+          "name": "View WhatsApp QR Image",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/wa/qr.png",
+            "description": "Returns the active pairing QR as a directly scannable PNG. Run Connect WhatsApp first and open this request immediately. Requires the admin API key."
+          }
+        },
+        {
+          "name": "Logout WhatsApp",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/v1/wa/logout",
+            "description": "Logs out and removes the active WhatsApp session. Requires the admin API key."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "apiKey",
+      "value": "change-me",
+      "type": "string"
+    },
+    {
+      "key": "adminApiKey",
+      "value": "change-me",
+      "type": "string"
+    },
+    {
+      "key": "hmacSecret",
+      "value": "change-me",
+      "type": "string"
+    },
+    {
+      "key": "receiver",
+      "value": "6281234567890",
+      "type": "string"
+    },
+    {
+      "key": "jobId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "idempotencyKey",
+      "value": "postman-example-001",
+      "type": "string"
+    }
+  ]
+}

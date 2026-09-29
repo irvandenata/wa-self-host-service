@@ -1,0 +1,19 @@
+[Unit]
+Description=WhatsApp Queue Service
+After=network-online.target redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wa-service
+Group=wa-service
+WorkingDirectory=/opt/wa-service
+EnvironmentFile=/etc/wa-service/wa-service.env
+ExecStart=/opt/wa-service/wa-service
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,92 @@
+openapi: 3.0.3
+info:
+  title: WA Queue Service API
+  version: 1.0.0
+paths:
+  /v1/messages:
+    post:
+      summary: Enqueue one WhatsApp message
+      security: [{ApiKeyAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Message'}
+      responses:
+        '200': {description: Enqueued}
+        '400': {description: Invalid payload}
+        '401': {description: Unauthorized}
+  /v1/messages/bulk:
+    post:
+      summary: Enqueue the same message for multiple receivers
+      security: [{ApiKeyAuth: []}]
+      responses:
+        '200': {description: Enqueued}
+  /v1/jobs/{id}:
+    get:
+      summary: Get job status
+      security: [{ApiKeyAuth: []}]
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: string}}
+      responses:
+        '200': {description: Job status}
+        '404': {description: Not found}
+  /v1/queue/stats:
+    get:
+      summary: Get queue counts
+      security: [{ApiKeyAuth: []}]
+      responses:
+        '200': {description: Queue counts}
+  /v1/queue/drain:
+    delete:
+      summary: Remove waiting jobs
+      security: [{ApiKeyAuth: []}]
+      responses:
+        '200': {description: Drained}
+  /v1/wa/status:
+    get:
+      summary: Get WhatsApp connection status
+      security: [{ApiKeyAuth: []}]
+      responses:
+        '200': {description: Status}
+  /v1/wa/connect:
+    post:
+      summary: Connect or start QR pairing
+      security: [{ApiKeyAuth: []}]
+      responses:
+        '200': {description: Connecting}
+  /v1/wa/qr:
+    get:
+      summary: Get current raw QR payload
+      security: [{ApiKeyAuth: []}]
+      responses:
+        '200': {description: QR payload}
+  /v1/wa/qr.png:
+    get:
+      summary: Get the current QR code as a PNG image
+      security: [{ApiKeyAuth: []}]
+      responses:
+        '200':
+          description: Scannable QR code
+          content:
+            image/png:
+              schema: {type: string, format: binary}
+        '409': {description: QR is not currently available}
+  /v1/wa/logout:
+    post:
+      summary: Log out and remove the WhatsApp session
+      security: [{ApiKeyAuth: []}]
+      responses:
+        '200': {description: Logged out}
+components:
+  securitySchemes:
+    ApiKeyAuth: {type: apiKey, in: header, name: X-API-Key}
+  schemas:
+    Message:
+      type: object
+      required: [receiver, message]
+      properties:
+        receiver: {type: string}
+        message: {type: string}
+        enableTypingEffect: {type: boolean}
+        typingSpeedMs: {type: integer, minimum: 1}
